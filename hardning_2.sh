@@ -21,7 +21,7 @@ echo "Rättigheterna för /etc/sudoers har ändrats."
 apt update && apt upgrade -y
 
 # Installera saker
-apt install -y ufw openssh-server fail2ban rsync wget git htop unzip nano vim bash-completion iftop sudo software-properties-common tcpdump curl apache2-utils 
+apt install -y ufw openssh-server fail2ban logrotate rsync wget git htop unzip nano vim bash-completion iftop sudo software-properties-common tcpdump curl apache2-utils 
 echo "Installationen av verktyg är klar!"
 
 # Konfigurera brandvägg för att tillåta endast HTTP, HTTPS och SSH
@@ -40,7 +40,6 @@ echo "SSH-inställningar är klara och SSH kommer att startas om!"
 service ssh restart
 
 # Installera säkerhetskopieringsverktyg
-apt install -y rsync
 rsync -av /etc /säkerhetskopiering
 gpg --output /säkerhetskopiering.tar.gz.gpg --symmetric /säkerhetskopiering.tar.gz
 echo "Säkerhetskopia av /etc-katalogen har skapats och krypterats till /säkerhetskopiering.tar.gz"
@@ -48,8 +47,30 @@ echo "Säkerhetskopia av /etc-katalogen har skapats och krypterats till /säkerh
 # Konfigurera fail2ban för att skydda mot brute-force attacker
 cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 sed -i 's/bantime  = 10m/bantime  = 1h/' /etc/fail2ban/jail.local
+echo "
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 5" >> /etc/fail2ban/jail.local
 echo "Fail2ban-inställningar är klara!"
 service fail2ban restart
+
+# Konfigurera logrotate för att rotera fail2ban-loggar
+echo "/var/log/fail2ban.log {
+    weekly
+    missingok
+    rotate 4
+    compress
+    delaycompress
+    notifempty
+}" >> /etc/logrotate.d/fail2ban
+
+# Starta om logrotate för att tillämpa ändringarna
+service logrotate restart
+
+
 
 # Skapa en användare och ge denne SSH-nyckeln
 read -p "Ange användarnamn för den nya användaren: " Adam
